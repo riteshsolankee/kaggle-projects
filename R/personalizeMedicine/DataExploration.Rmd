@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-This is an early Exploratory Data Analysis for the [Personalized Medicine: Redefining Cancer Treatment](https://www.kaggle.com/c/msk-redefining-cancer-treatment) challenge. I will be using *ggplot2* and the *tidyverse* tools to study and visualise the structures in the data.
+This is an Exploratory Data Analysis for the [Personalized Medicine: Redefining Cancer Treatment](https://www.kaggle.com/c/msk-redefining-cancer-treatment) challenge. I will be using *ggplot2* and the *tidyverse* tools to study and visualise the structures in the data.
 
 We have been challenged to automatically classify genetic mutations that contribute to cancer tumor growth (so-called "drivers") in the presence of mutations that are don't affect the tumors ("passengers").
 
@@ -59,7 +59,7 @@ train <- read_csv('data/training_variants')
 test  <- read_csv('data/test_variants')
 ```
 
-Reading in the text files currently takes a bit more effort in R. **The previous read-in method didn't work properly. Use this one instead:**
+Reading test file and loading test and train files
 
 ```{r}
 train_txt_dump <- tibble(text = read_lines(unz("data/training_text.zip", "training_text"), skip = 1))
@@ -319,12 +319,11 @@ str_sub(train_txt$txt[1], start = 1, end = 1e3)
 
 Sure enough, we can easily confirm that the first part of the complete entry corresponds to [this paper](https://www.ncbi.nlm.nih.gov/labs/pubmed/24218572-cdk10cyclin-m-is-a-protein-kinase-that-controls-ets2-degradation-and-is-deficient-in-star-syndrome/) and later switches to [this one](https://www.nature.com/ng/journal/v40/n3/pdf/ng.86.pdf?origin=ppub) (and maybe other related ones.) Therefore, this data file appears to be a data dump of the complete publication texts for the papers that the classification was based on (including figure captions, manuscript structure, and sometimes affiliations).
 
-I'm suspecting that a little domain knowledge will go a long way here in determining which keywords are important and which ones aren't. This will be an interesting excercise to see how clearly information is communicated in scientific publications.
 
 
 ## On data cleaning and preparations
 
-Here I want to collect various text features, artefacts, and global properties that I noticed during this initial exploration. This list will likely expand as the kernel grows.
+Collect various text features, artifacts, and global properties that is noticed during this initial exploration. 
 
 - **Scientific terminology and stop words:** Most scientific papers have a common style of language that will be reasonably homogeneous throughout the text files. Words like "result" or "discuss" will be frequent without necessarily containing any signal for our prediction goal. Therefore, below I define my own list of additional stop words.
 
@@ -352,7 +351,7 @@ test_txt <- test_txt %>%
 combine_txt <- full_join(train_txt,test_txt)
 ```
 
-For an early exploration we can look at the distribution of the length of the text features. A priori, I wouldn't expect the length of a paper to be related to the classification outcome; but maybe some classifications require only a single paper while for others it's necessary to check multiple ones. 
+Now, examining the distribution of the length of the text features. Validate id the length of a paper is related to the classification outcome; i.e for example, check if the classifications require only a single paper or it's necessary to check multiple ones. 
 
 First, here is the overall distribution of the text entry lengths in train vs test:
 
@@ -419,7 +418,7 @@ We find:
 
 ### Missing text values
 
-In the discussion it was [pointed out](https://www.kaggle.com/c/msk-redefining-cancer-treatment/discussion/35621) that a few observations have a "null " entry in their *text* features. Using our *txt\_len* feature we can confirm this finding and easily show that there are no other *text* values with less than 100 characters (just in case a different Null indicator would have been used):
+In the kaggle discussion it was [pointed out](https://www.kaggle.com/c/msk-redefining-cancer-treatment/discussion/35621) that a few observations have a "null " entry in their *text* features. Using our *txt\_len* feature we can confirm this finding and easily show that there are no other *text* values with less than 100 characters (just in case a different Null indicator would have been used):
 
 ```{r}
 combine_txt %>%
