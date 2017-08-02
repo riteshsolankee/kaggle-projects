@@ -87,17 +87,18 @@ train <- train %>%
   mutate(Gene = factor(Gene),
          Variation = factor(Variation),
          Class = factor(Class))
+summary(train, maxsum = 9)
 
 test <- test %>%
   mutate(Gene = factor(Gene),
          Variation = factor(Variation))
-
-summary(train, maxsum = 9)
+summary(test, maxsum = 9)
 ```
 
 
 ```{r}
 glimpse(train)
+glimpse(test)
 ```
 
 ```{r}
@@ -153,15 +154,53 @@ This is the frequency distribution of the most frequent *Gene* values:
 
 ```{r fig.align = 'default', warning = FALSE, fig.cap ="Fig. 1", out.width="100%"}
 top_gene <- train %>%
-  group_by(Gene) %>%
+  group_by(Gene, Class) %>%
   summarise(ct = n()) %>%
-  filter(ct > 40)
+  filter(ct > 20)
+
+classwise.top5.gene <- 
+  train %>%
+  group_by(Gene, Class) %>%
+  summarise(ct = n())  %>%
+  arrange(desc(ct)) %>%
+  group_by(Class) %>%
+  slice(1:5)
+  
+ggplot(
+  classwise.top5.gene, 
+  aes(x = reorder(Gene,-ct), y = ct)) + 
+  geom_bar(stat = 'identity') + 
+  theme_light() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Top 5 Genes Count", subtitle="Classes Vs Gene Count") + 
+  xlab("\n Top-5 - Genes") + 
+  ylab("\n Genes Count") +
+  facet_wrap(~Class, ncol = 5, scales = "free")
 
 top_gene %>%
   ggplot(aes(reorder(Gene, -ct, FUN = min), ct)) +
   geom_point(size = 4) +
   labs(x = "Gene", y = "Frequency") +
   coord_flip()
+
+ggplot(
+    top_gene,
+    aes(x = reorder(Gene, -ct, FUN = min), y = ct, fill= Class, size = ct)) +
+  geom_point(shape = 21) +
+  labs(x = "Gene", y = "Frequency") +
+  coord_flip()
+ 
+# Stacked bar chat w.r.t genes
+ggplot(
+  data = top_gene,
+  aes(x = reorder(Class, -ct, FUN = min), y = ct, fill = Gene)) +
+    geom_bar(stat = "identity") + coord_flip()
+ 
+# Stacked bar chat w.r.t classed
+ggplot(
+  data = top_gene,
+  aes(x = reorder(Gene, -ct, FUN = min), y = ct, fill = Class)) +
+    geom_bar(stat = "identity") + coord_flip()
 ```
 
 ```{r fig.align = 'default', warning = FALSE, fig.cap ="Fig. 2", out.width="100%"}

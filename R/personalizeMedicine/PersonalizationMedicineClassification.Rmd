@@ -44,20 +44,20 @@ labelCountEncoding <- function(column){
 ```{r}
 # Load CSV files
 cat("Read data")
-train_text <- do.call(rbind,strsplit(readLines('../input/training_text'),'||',fixed=T))
+train_text <- do.call(rbind,strsplit(readLines(unz("data/training_text.zip", "training_text")),'||',fixed=T))
 train_text <- as.data.table(train_text)
 train_text <- train_text[-1,]
 colnames(train_text) <- c("ID", "Text")
 train_text$ID <- as.numeric(train_text$ID)
 
-test_text <- do.call(rbind,strsplit(readLines('../input/test_text'),'||',fixed=T))
+test_text <- do.call(rbind,strsplit(readLines(unz('data/test_text.zip','test_text')),'||',fixed=T))
 test_text <- as.data.table(test_text)
 test_text <- test_text[-1,]
 colnames(test_text) <- c("ID", "Text")
 test_text$ID <- as.numeric(test_text$ID)
 
-train <- fread("../input/training_variants", sep=",", stringsAsFactors = T)
-test <- fread("../input/test_variants", sep=",", stringsAsFactors = T)
+train <- fread("data/training_variants", sep=",", stringsAsFactors = T)
+test <- fread("data/test_variants", sep=",", stringsAsFactors = T)
 train <- merge(train,train_text,by="ID")
 test <- merge(test,test_text,by="ID")
 rm(test_text,train_text);gc()
@@ -161,7 +161,7 @@ xgb.plot.importance(importance_matrix[1:30,],1)
 cat("Predictions")
 preds <- as.data.table(t(matrix(predict(xgb_model, dtest), nrow=9, ncol=nrow(dtest))))
 colnames(preds) <- c("class1","class2","class3","class4","class5","class6","class7","class8","class9")
-write.table(data.table(ID=test_ids, preds), "submission.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(ID=test_ids, preds), "data\submission.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 ```
 
 
