@@ -12,9 +12,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-This is an Exploratory Data Analysis for the [Personalized Medicine: Redefining Cancer Treatment](https://www.kaggle.com/c/msk-redefining-cancer-treatment) challenge. I will be using *ggplot2* and the *tidyverse* tools to study and visualise the structures in the data.
+ Exploratory Data Analysis for the [Personalized Medicine: Redefining Cancer Treatment](https://www.kaggle.com/c/msk-redefining-cancer-treatment) challenge. 
 
-We have been challenged to automatically classify genetic mutations that contribute to cancer tumor growth (so-called "drivers") in the presence of mutations that are don't affect the tumors ("passengers").
+The goal of this project is to classify genetic mutations that contribute to cancer tumor growth ("drivers") in the presence of mutations that don't affect the tumors ("passengers").
 
 The [data](https://www.kaggle.com/c/msk-redefining-cancer-treatment/data) comes in 4 different files. Two csv files and two text files:
 
@@ -22,7 +22,7 @@ The [data](https://www.kaggle.com/c/msk-redefining-cancer-treatment/data) comes 
 
 - *training/test text:* Those contain an extensive description of the evidence that was used (by experts) to manually label the mutation classes.
 
-The text information holds the key to the classification problem and will have to be understood/modelled well to achieve a useful accuracy.
+The data in the text column will be promarily used to build hte model for classification.
 
 ## Deleting all variables
 ```{r clear workspace}
@@ -87,18 +87,18 @@ train <- train %>%
   mutate(Gene = factor(Gene),
          Variation = factor(Variation),
          Class = factor(Class))
-summary(train, maxsum = 9)
+#summary(train, maxsum = 9)
 
 test <- test %>%
   mutate(Gene = factor(Gene),
          Variation = factor(Variation))
-summary(test, maxsum = 9)
+#summary(test, maxsum = 9)
 ```
 
 
 ```{r}
-glimpse(train)
-glimpse(test)
+str(train)
+str(test)
 ```
 
 ```{r}
@@ -145,7 +145,7 @@ We find:
 
 - The most frequent *Genes* in the train vs test data are complete different. In addition, the test data seems to contain significantly more different *Genes* and fewer high-frequency *Genes* than the train data. To some extent, this might be an effect of the added machine-generate entries in the test data (by adding many different random levels). Thereby, the difference in frequency might mirror the true fraction of effective test data over train data.
 
-- In contrast, the most frequent *Variations* in train vs test are largely identical; although, again, the corresponding frequencies are lower in the test data (by a factor of 5 - 10).
+- In contrast, the most frequent *Variations* in train vs test are largely identical; although, again, the corresponding frequencies are lower in the test data.
 
 
 ## Individual feature visualisations
@@ -158,30 +158,13 @@ top_gene <- train %>%
   summarise(ct = n()) %>%
   filter(ct > 20)
 
-classwise.top5.gene <- 
-  train %>%
-  group_by(Gene, Class) %>%
-  summarise(ct = n())  %>%
-  arrange(desc(ct)) %>%
-  group_by(Class) %>%
-  slice(1:5)
-  
-ggplot(
-  classwise.top5.gene, 
-  aes(x = reorder(Gene,-ct), y = ct)) + 
-  geom_bar(stat = 'identity') + 
-  theme_light() +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle("Top 5 Genes Count", subtitle="Classes Vs Gene Count") + 
-  xlab("\n Top-5 - Genes") + 
-  ylab("\n Genes Count") +
-  facet_wrap(~Class, ncol = 5, scales = "free")
 
-top_gene %>%
-  ggplot(aes(reorder(Gene, -ct, FUN = min), ct)) +
-  geom_point(size = 4) +
-  labs(x = "Gene", y = "Frequency") +
-  coord_flip()
+
+# top_gene %>%
+#   ggplot(aes(reorder(Gene, -ct, FUN = min), ct)) +
+#   geom_point(size = 4) +
+#   labs(x = "Gene", y = "Frequency") +
+#   coord_flip()
 
 ggplot(
     top_gene,
@@ -189,18 +172,24 @@ ggplot(
   geom_point(shape = 21) +
   labs(x = "Gene", y = "Frequency") +
   coord_flip()
- 
+
+
+```
+
+```{r fig.align = 'default', warning = FALSE, fig.cap ="Fig. 2", out.width="100%"}
 # Stacked bar chat w.r.t genes
 ggplot(
   data = top_gene,
   aes(x = reorder(Class, -ct, FUN = min), y = ct, fill = Gene)) +
-    geom_bar(stat = "identity") + coord_flip()
+  geom_bar(stat = "identity") + coord_flip() +
+  theme(legend.position="bottom")
+
  
 # Stacked bar chat w.r.t classed
-ggplot(
-  data = top_gene,
-  aes(x = reorder(Gene, -ct, FUN = min), y = ct, fill = Class)) +
-    geom_bar(stat = "identity") + coord_flip()
+# ggplot(
+#   data = top_gene,
+#   aes(x = reorder(Gene, -ct, FUN = min), y = ct, fill = Class)) +
+#   geom_bar(stat = "identity") + coord_flip()
 ```
 
 ```{r fig.align = 'default', warning = FALSE, fig.cap ="Fig. 2", out.width="100%"}
@@ -245,8 +234,17 @@ Here we see how the *Class* target is distributed in the train data:
 
 ```{r fig.align = 'default', warning = FALSE, fig.cap ="Fig. 4", out.width="100%"}
 train %>%
-  ggplot(aes(Class)) +
-  geom_bar()
+  group_by(Class) %>%
+  summarise(ct = n())  %>%
+  arrange(desc(ct)) %>%
+  ggplot(aes(x=reorder(Class, -ct), y=ct, fill=ct)) +
+  geom_bar(stat = 'identity') +
+  ggtitle("Train - Class target distribution\n", subtitle="Classes Vs  Count") + 
+  xlab("\n Class") + 
+  ylab("\n Count") 
+
+
+
 ```
 
 We find:
@@ -270,13 +268,43 @@ First, we will look at the frequency distribution of the overall most frequent *
 
 
 ```{r fig.align = 'default', warning = FALSE, fig.cap ="Fig. 5", out.width="100%"}
+
+train %>%
+  group_by(Gene, Class) %>%
+  summarise(ct = n())  %>%
+  arrange(desc(ct)) %>%
+  group_by(Class) %>%
+  slice(1:5) %>% 
+ggplot(
+  aes(x = reorder(Gene,-ct), y = ct, fill=ct)) + 
+  geom_bar(stat = 'identity') + 
+  theme_light() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Top 5 Genes Count", subtitle="Classes Vs Gene Count") + 
+  xlab("\n Top-5 - Genes") + 
+  ylab("\n Genes Count") +
+  facet_wrap(~Class, ncol = 5, scales = "free")
+
+```
+
+
+```{r fig.align = 'default', warning = FALSE, fig.cap ="Fig. 6", out.width="100%"}
 train %>%
   filter(Gene %in% str_c(top_gene$Gene)) %>%
-  ggplot(aes(Gene)) +
-  geom_bar() +
+  group_by(Gene, Class) %>%
+  summarise(ct = n())  %>%
+  arrange(desc(ct)) %>%
+  group_by(Class) %>%
+  ggplot( 
+  aes(x = Class, y = ct, fill=ct)) + 
+  geom_bar(stat = 'identity') + 
+  theme_light() +
   scale_y_log10() +
-  theme(axis.text.x  = element_text(angle=90, vjust=0.5, size=7)) +
-  facet_wrap(~ Class)
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ggtitle("Top 5 Genes Count", subtitle="Classes Vs Gene Count") + 
+  xlab("\n Top-5 - Genes") + 
+  ylab("\n Genes Count") +
+  facet_wrap(~Gene)
 ```
 
 We see immediately that there are significant differences:
@@ -290,12 +318,15 @@ We see immediately that there are significant differences:
 Here's what it looks like for the *Classes* sorted by *Genes* (again log counts):
 
 ```{r fig.align = 'default', warning = FALSE, fig.cap ="Fig. 6", out.width="100%"}
-train %>%
-  filter(Gene %in% str_c(top_gene$Gene)) %>%
-  ggplot(aes(Class)) +
-  geom_bar() +
-  scale_y_log10() +
-  facet_wrap(~ Gene)
+# xx <- train %>%
+#   filter(Gene %in% str_c(top_gene$Gene))
+# 
+# train %>%
+#   filter(Gene %in% str_c(top_gene$Gene)) %>%
+#   ggplot(aes(Class)) +
+#   geom_bar() +
+#   scale_y_log10() +
+#   facet_wrap(~ Gene)
 ```
 
 This representation underlines our findings about the similar/dominating *Genes* in different *Classes*.
@@ -397,8 +428,8 @@ First, here is the overall distribution of the text entry lengths in train vs te
 ```{r split=FALSE, fig.align = 'default', warning = FALSE, fig.cap ="Fig. 9", out.width="100%"}
 combine_txt %>%
   ggplot(aes(txt_len, fill = set)) +
-#  geom_density(alpha = 0.5, bw = 5e3) +
-  geom_histogram(bins = 50) +
+  geom_density(alpha = 0.5, bw = 5e3) +
+  #geom_histogram(bins = 200) +
   labs(x = "Length of text entry")
 ```
 
@@ -417,6 +448,8 @@ full_join(foo, bar, by = "ID") %>%
   geom_density(fill = "red", bw = 5e3) +
   labs(x = "Length of text entry") +
   facet_wrap(~ Class)
+
+
 
 ```
 
