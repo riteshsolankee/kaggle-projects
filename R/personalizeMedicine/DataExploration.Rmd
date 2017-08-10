@@ -275,8 +275,7 @@ train %>%
   arrange(desc(ct)) %>%
   group_by(Class) %>%
   slice(1:5) %>% 
-ggplot(
-  aes(x = reorder(Gene,-ct), y = ct, fill=ct)) + 
+  ggplot(aes(x = reorder(Gene,-ct), y = ct, fill=ct)) + 
   geom_bar(stat = 'identity') + 
   theme_light() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
@@ -301,9 +300,9 @@ train %>%
   theme_light() +
   scale_y_log10() +
   #theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  ggtitle("Top 5 Genes Count", subtitle="Classes Vs Gene Count") + 
-  xlab("\n Top-5 - Genes") + 
-  ylab("\n Genes Count") +
+  ggtitle("Genes Count against class ", subtitle="Gene Count Vs Classes") + 
+  xlab("\n Genes") + 
+  ylab("\n Class Count") +
   facet_wrap(~Gene)
 ```
 
