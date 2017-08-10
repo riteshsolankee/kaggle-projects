@@ -50,6 +50,7 @@ library('forcats') # factor manipulation
 library('tidytext') # text mining
 library('SnowballC') # text analysis
 library('wordcloud') # test visualisation
+library('ggbeeswarm')
 ```
 
 Reading in the variants data tables:
@@ -437,16 +438,20 @@ The difference in distribution shape might again be due to the machine-generated
 Now, let's see whether this distribution changes for the different target *Classes*. First, a facet wrap comparison:
 
 ```{r split=FALSE, fig.align = 'default', warning = FALSE, fig.cap ="Fig. 10", out.width="100%"}
-foo <- train_txt %>%
+train.txt <- train_txt %>%
   select(ID, txt_len)
-bar <- train %>%
+tain.class <- train %>%
   select(ID, Class)
 
-full_join(foo, bar, by = "ID") %>%
-  ggplot(aes(txt_len)) +
-  geom_density(fill = "red", bw = 5e3) +
-  labs(x = "Length of text entry") +
-  facet_wrap(~ Class)
+options(scipen=999)
+
+full_join(train.txt, tain.class, by = "ID") %>%
+  ggplot(aes(x = Class, y = txt_len)) +
+  geom_violin(aes(fill = Class)) +
+  geom_beeswarm(aes(color = Class),alpha=.25)+
+  theme(legend.position = "bottom", legend.direction = "horizontal") 
+  
+
 
 
 
@@ -455,16 +460,16 @@ full_join(foo, bar, by = "ID") %>%
 Then an overlay of empirical cumulative density functions:
 
 ```{r split=FALSE, fig.align = 'default', warning = FALSE, fig.cap ="Fig. 11", out.width="100%"}
-foo <- train_txt %>%
-  select(ID, txt_len)
-bar <- train %>%
-  select(ID, Class)
-
-full_join(foo, bar, by = "ID") %>%
-  ggplot(aes(txt_len)) +
-  stat_ecdf(geom = "step") +
-  stat_ecdf(aes(txt_len, color = Class), geom = "step") +
-  labs(x = "Length of text entry")
+# foo <- train_txt %>%
+#   select(ID, txt_len)
+# bar <- train %>%
+#   select(ID, Class)
+# 
+# full_join(foo, bar, by = "ID") %>%
+#   ggplot(aes(txt_len)) +
+#   stat_ecdf(geom = "step") +
+#   stat_ecdf(aes(txt_len, color = Class), geom = "step") +
+#   labs(x = "Length of text entry")
 ```
 
 And the median lengths for each class:
@@ -508,44 +513,44 @@ An obvious first step in analysing the content of the clinical evidence is to lo
 We choose the two words "pathogenic" and "benign" that are used in the naming of the 5 categories in [this overview paper](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4544753/). Here we extract their frequency of occurence per observation:
 
 ```{r}
-train_txt <- train_txt %>%
-  mutate(f_pathogenic = str_count(txt, "pathogenic"),
-         f_benign = str_count(txt, "benign")
-         )
+# train_txt <- train_txt %>%
+#   mutate(f_pathogenic = str_count(txt, "pathogenic"),
+#          f_benign = str_count(txt, "benign")
+#          )
 ```
 
 Those are the frequency distributions of the word "pathogenic" for our 9 classes (note the logarithmic y-axes):
 
 ```{r split=FALSE, fig.align = 'default', warning = FALSE, fig.cap ="Fig. 12", out.width="100%"}
-foo <- train_txt %>%
-  select(ID, f_benign, f_pathogenic)
-bar <- train %>%
-  select(ID, Class)
-
-full_join(foo, bar, by = "ID") %>%
-  ggplot(aes(f_pathogenic)) +
-  geom_bar() +
-  scale_y_log10() +
-#  scale_x_log10() +
-  facet_wrap(~ Class)
+# foo <- train_txt %>%
+#   select(ID, f_benign, f_pathogenic)
+# bar <- train %>%
+#   select(ID, Class)
+# 
+# full_join(foo, bar, by = "ID") %>%
+#   ggplot(aes(f_pathogenic)) +
+#   geom_bar() +
+#   scale_y_log10() +
+# #  scale_x_log10() +
+#   facet_wrap(~ Class)
 ```
 
 And here we plot the ratio of the mean occurence per class of the word "pathogenic" over the mean occurence of the word "benign":
 
 ```{r split=FALSE, fig.align = 'default', warning = FALSE, fig.cap ="Fig. 13", out.width="100%"}
-foo <- train_txt %>%
-  select(ID, f_benign, f_pathogenic)
-bar <- train %>%
-  select(ID, Class)
-
-full_join(foo, bar, by = "ID") %>%
-  group_by(Class) %>%
-  summarise(mean_benign = mean(f_benign),
-            mean_pathogenic = mean(f_pathogenic),
-            path_ben = mean(f_pathogenic)/mean(f_benign)) %>%
-  ggplot(aes(reorder(Class, -path_ben, FUN = max), path_ben)) +
-  geom_point(colour = "red", size = 3) +
-  labs(x = "Class", y = "# occurences 'pathogenic' / # occurences 'benign'")
+# foo <- train_txt %>%
+#   select(ID, f_benign, f_pathogenic)
+# bar <- train %>%
+#   select(ID, Class)
+# 
+# full_join(foo, bar, by = "ID") %>%
+#   group_by(Class) %>%
+#   summarise(mean_benign = mean(f_benign),
+#             mean_pathogenic = mean(f_pathogenic),
+#             path_ben = mean(f_pathogenic)/mean(f_benign)) %>%
+#   ggplot(aes(reorder(Class, -path_ben, FUN = max), path_ben)) +
+#   geom_point(colour = "red", size = 3) +
+#   labs(x = "Class", y = "# occurences 'pathogenic' / # occurences 'benign'")
 ```
 
 We find:
@@ -975,4 +980,3 @@ plot_bigram_net_class(9, 1.2e2)
 ```
 
 Class 9: One of the denser networks here shows the relations that connect "idh1" and "u2af1".
-
