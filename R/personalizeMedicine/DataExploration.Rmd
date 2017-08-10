@@ -32,48 +32,89 @@ rm(list=ls())
 ## Load libraries and data files
 
 ```{r, message = FALSE}
-library('ggplot2') # visualization
-library('ggthemes') # visualization
-library('scales') # visualization
-library('grid') # visualisation
-library('gridExtra') # visualisation
-library('corrplot') # visualisation
-library('ggfortify') # visualisation
-library('ggraph') # visualisation
-library('igraph') # visualisation
-library('dplyr') # data manipulation
+# visualization
+library('ggplot2') 
+library('ggthemes') 
+library('scales') 
+library('grid') 
+library('gridExtra')
+library('corrplot') 
+library('ggfortify') 
+library('ggraph') 
+library('igraph')
+library('ggbeeswarm') # plotting distrbution 
+# data manipulation
+library('dplyr') 
 library('readr') # data input
 library('tibble') # data wrangling
 library('tidyr') # data wrangling
-library('stringr') # string manipulation
-library('forcats') # factor manipulation
-library('tidytext') # text mining
-library('SnowballC') # text analysis
-library('wordcloud') # test visualisation
-library('ggbeeswarm')
+library('data.table')
+# string manipulation
+library('stringr') 
+# factor manipulation
+library('forcats') 
+# text mining
+library('tidytext') 
+library('SnowballC') 
+library('wordcloud') 
+library('tm')
+```
+
+## Loading the datafiles
+```{r}
+# Load CSV files
+cat("Read data")
+train_text <- do.call(rbind,strsplit(readLines(unz("data/training_text.zip", "training_text")),'||',fixed=T))
+train_text <- as.data.table(train_text)
+train_text <- train_text[-1,]
+colnames(train_text) <- c("ID", "Text")
+train_text$ID <- as.numeric(train_text$ID)
+train_txt <- 
+  train_text %>%
+  select(ID, Text)  
+
+test_text <- do.call(rbind,strsplit(readLines(unz('data/test_text.zip','test_text')),'||',fixed=T))
+test_text <- as.data.table(test_text)
+test_text <- test_text[-1,]
+colnames(test_text) <- c("ID", "Text")
+test_text$ID <- as.numeric(test_text$ID)
+test_txt <- 
+  test_text %>%
+  select(ID, Text)
+
+train <- fread("data/training_variants", sep=",", stringsAsFactors = T)
+test <- fread("data/test_variants", sep=",", stringsAsFactors = T)
+train <- merge(train,train_text,by="ID")
+test <- merge(test,test_text,by="ID")
+#rm(test_text,train_text);gc()
+
+test$Class <- -1
+data <- rbind(train,test)
+#rm(train,test);gc()
+
 ```
 
 Reading in the variants data tables:
 
 ```{r, message=FALSE, warning=FALSE}
-train <- read_csv('data/training_variants')
-test  <- read_csv('data/test_variants')
+# train <- read_csv('data/training_variants')
+# test  <- read_csv('data/test_variants')
 ```
 
 Reading test file and loading test and train files
 
 ```{r}
-train_txt_dump <- tibble(text = read_lines(unz("data/training_text.zip", "training_text"), skip = 1))
-train_txt <- train_txt_dump %>%
-  separate(text, into = c("ID", "txt"), sep = "\\|\\|")
-train_txt <- train_txt %>%
-  mutate(ID = as.integer(ID))
-
-test_txt_dump <- tibble(text = read_lines(unz('data/test_text.zip','test_text'), skip = 1))
-test_txt <- test_txt_dump %>%
-  separate(text, into = c("ID", "txt"), sep = "\\|\\|")
-test_txt <- test_txt %>%
-  mutate(ID = as.integer(ID))
+# train_txt_dump <- tibble(text = read_lines(unz("data/training_text.zip", "training_text"), skip = 1))
+# train_txt <- train_txt_dump %>%
+#   separate(text, into = c("ID", "txt"), sep = "\\|\\|")
+# train_txt <- train_txt %>%
+#   mutate(ID = as.integer(ID))
+# 
+# test_txt_dump <- tibble(text = read_lines(unz('data/test_text.zip','test_text'), skip = 1))
+# test_txt <- test_txt_dump %>%
+#   separate(text, into = c("ID", "txt"), sep = "\\|\\|")
+# test_txt <- test_txt %>%
+#   mutate(ID = as.integer(ID))
 ```
 
 
@@ -84,16 +125,16 @@ We start this EDA with a look at the *variants* data files, which are more easil
 ## First table overviews of the data:
 
 ```{r}
-train <- train %>%
-  mutate(Gene = factor(Gene),
-         Variation = factor(Variation),
-         Class = factor(Class))
-#summary(train, maxsum = 9)
-
-test <- test %>%
-  mutate(Gene = factor(Gene),
-         Variation = factor(Variation))
-#summary(test, maxsum = 9)
+# train <- train %>%
+#   mutate(Gene = factor(Gene),
+#          Variation = factor(Variation),
+#          Class = factor(Class))
+# #summary(train, maxsum = 9)
+# 
+# test <- test %>%
+#   mutate(Gene = factor(Gene),
+#          Variation = factor(Variation))
+# #summary(test, maxsum = 9)
 ```
 
 
@@ -169,7 +210,7 @@ top_gene <- train %>%
 
 ggplot(
     top_gene,
-    aes(x = reorder(Gene, -ct, FUN = min), y = ct, fill= Class, size = ct)) +
+    aes(x = reorder(Gene, -ct, FUN = min), y = ct, fill= factor(Class), size = ct)) +
   geom_point(shape = 21) +
   labs(x = "Gene", y = "Frequency") +
   coord_flip()
@@ -411,11 +452,11 @@ Collect various text features, artifacts, and global properties that is noticed 
 
 ```{r message = FALSE}
 train_txt <- train_txt %>%
-  mutate(txt_len = str_length(txt),
+  mutate(txt_len = str_length(Text),
          set = "train")
 
 test_txt <- test_txt %>%
-  mutate(txt_len = str_length(txt),
+  mutate(txt_len = str_length(Text),
          set = "test")
 
 combine_txt <- full_join(train_txt,test_txt)
@@ -446,9 +487,10 @@ tain.class <- train %>%
 options(scipen=999)
 
 full_join(train.txt, tain.class, by = "ID") %>%
-  ggplot(aes(x = Class, y = txt_len)) +
-  geom_violin(aes(fill = Class)) +
-  geom_beeswarm(aes(color = Class),alpha=.25)+
+  ggplot(aes(x = factor(Class), y = txt_len)) +
+  geom_violin(aes(fill = factor(Class))) +
+  #geom_beeswarm(aes(color = factor(Class)),alpha=.25) +
+  geom_jitter(aes(color = factor(Class)) ,position=position_jitter(width=0.2), alpha=0.25) +
   theme(legend.position = "bottom", legend.direction = "horizontal") 
   
 
@@ -620,6 +662,25 @@ t1 %>%
   xlab(NULL) +
   coord_flip()
 ```
+
+
+```{r}
+# Basic text features
+cat("Basic text features")
+
+corpus <- Corpus(VectorSource(data$Text))
+corpus <- tm_map(corpus, stripWhitespace)
+corpus <- tm_map(corpus, content_transformer(tolower))
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, removeWords, stopwords("english"))
+corpus <- tm_map(corpus, stemDocument, language="english")
+corpus <- tm_map(corpus, removeNumbers)
+
+text.dtm <- DocumentTermMatrix(corpus)
+text.tdm <- DocumentTermMatrix(corpus)
+
+```
+
 
 The result shows us the fundamental words that are most frequent in our overall text data. Another way of visualising these frequencies is through a *wordcloud*. Personally, I suspect that wordclouds might be the text equivalent of pie charts. But it's useful to know how to incorporate them into tidy text analysis:
 
