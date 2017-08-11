@@ -712,28 +712,32 @@ getFrequentWordDataFrame <- function(word.corpus, dtm, max.word.freq){
 
 ```{r}
 docs.train <- getDocumentTermMatrices(train$Text)
-getFrequentWordDataFrame(docs$CORPUS, docs$DTM, 100000) %>%
+getFrequentWordDataFrame(docs.train$CORPUS, docs.train$DTM, 10000) %>%
   arrange(-count) %>%
-  head(20) %>%
+  head(40) %>%
   ggplot(aes(x= reorder(words, count), y = count)) +
   geom_col() +
   xlab(NULL) +
   coord_flip()
+```
 
+```{r}
 docs.test <- getDocumentTermMatrices(test$Text)
-getFrequentWordDataFrame(docs$CORPUS, docs$DTM, 100000)  %>%
+getFrequentWordDataFrame(docs.test$CORPUS, docs.test$DTM, 10000)  %>%
   arrange(-count) %>%
-  head(20) %>%
+  head(40) %>%
   ggplot(aes(x= reorder(words, count), y = count)) +
   geom_col() +
   xlab(NULL) +
   coord_flip()
+```
 
+```{r}
 
 docs.combine <- getDocumentTermMatrices(data$Text)
-getFrequentWordDataFrame(docs$CORPUS, docs$DTM, 100000)  %>%
+getFrequentWordDataFrame(docs.combine$CORPUS, docs.combine$DTM, 10000)  %>%
   arrange(-count) %>%
-  head(20) %>%
+  head(40) %>%
   ggplot(aes(x= reorder(words, count), y = count)) +
   geom_col() +
   xlab(NULL) +
@@ -741,6 +745,72 @@ getFrequentWordDataFrame(docs$CORPUS, docs$DTM, 100000)  %>%
 
 ```
 
+```{r}
+str(train)
+dfForEachClass <- function(train.text){
+  class1.text <- 
+    train.text %>%
+    filter(Class == 1) %>%
+    select(Text)
+  class2.text <- 
+    train.text %>%
+    filter(Class == 2) %>%
+    select(Text)
+  class3.text <- 
+    train.text %>%
+    filter(Class == 3) %>%
+    select(Text)
+  class4.text <- 
+    train.text %>%
+    filter(Class == 4) %>%
+    select(Text)
+  class5.text <- 
+    train.text %>%
+    filter(Class == 5) %>%
+    select(Text)
+  class6.text <- 
+    train.text %>%
+    filter(Class == 6) %>%
+    select(Text)
+  class7.text <- 
+    train.text %>%
+    filter(Class == 7) %>%
+    select(Text)
+  class8.text <- 
+    train.text %>%
+    filter(Class == 8) %>%
+    select(Text)
+  class9.text <- 
+    train.text %>%
+    filter(Class == 9) %>%
+    select(Text)
+  list(C1 = class1.text, C2 = class2.text, C3 = class3.text,
+       C4 = class4.text, C5 = class5.text, C6 = class6.text,
+       C7 = class7.text, C8 = class8.text, C9 = class9.text)
+}
+class.txt.list <- dfForEachClass(train)
+
+df.list <- list()
+index <- 1
+# doc.list <- getDocumentTermMatrices(class.txt.list$C1)
+# df.list <- c(df.list, getFrequentWordDataFrame(doc.list$CORPUS, doc.list$DTM, 1000))
+for(class.txt in class.txt.list){
+  doc.list <- getDocumentTermMatrices(class.txt)
+  df <- getFrequentWordDataFrame(doc.list$CORPUS, doc.list$DTM, 1000)
+  colnames(df)[which(names(df) == "count")] <- paste("count-", index, sep="")
+  df.list[[index]] <- df
+    
+  index <- index + 1
+}
+
+final.df <- Reduce(function(dtf1, dtf2) merge(dtf1, dtf2, by = "words", all = TRUE), df.list)
+final.df[is.na(final.df)] <- 0
+class(final.df$words)
+row.names(final.df ) <- final.df$words
+final.matrix <- as.matrix(final.df[,-1]) 
+comparison.cloud(final.matrix, max.words=1000, random.order=FALSE, scale = c(4,.5)) 
+
+```
 
 The result shows us the fundamental words that are most frequent in our overall text data. Another way of visualising these frequencies is through a *wordcloud*. Personally, I suspect that wordclouds might be the text equivalent of pie charts. But it's useful to know how to incorporate them into tidy text analysis:
 
