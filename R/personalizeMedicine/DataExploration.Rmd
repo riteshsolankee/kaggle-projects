@@ -27,6 +27,7 @@ The data in the text column will be promarily used to build hte model for classi
 ## Deleting all variables
 ```{r clear workspace}
 rm(list=ls())
+gc()
 ```
 
 ## Load libraries and data files
@@ -612,7 +613,8 @@ As the authors of the *tidytext* [package](https://cran.r-project.org/web/packag
 In order to get our text data in a tidy shape, we use the *unnest\_tokens* tool. This also gets rid of punctuation and converts everything to lowercase:
 
 ```{r}
-t1 <- train_txt %>% select(ID, txt) %>% unnest_tokens(word, txt)
+t1 <- train_txt %>% select(ID, Text) %>% unnest_tokens(words, Text)
+colnames(t1) <- c("ID", "word")
 head(t1)
 ```
 
@@ -626,6 +628,7 @@ my_stopwords <- data_frame(word = c(as.character(1:100),
                                     "method", "result", "conclusion", "author",
                                     "find", "found", "show", "perform",
                                     "demonstrate", "evaluate", "discuss"))
+
 t1 <- t1 %>%
   anti_join(stop_words, by = "word") %>%
   anti_join(my_stopwords, by = "word") %>%
@@ -643,6 +646,11 @@ t1 %>%
   geom_col() +
   xlab(NULL) +
   coord_flip()
+
+
+```
+```{r}
+rm(t1);gc()
 ```
 
 By and large, those are words that we would expect to find in a publication on cancer research and genetics. You will notice that for instance the top 4 words are essentially 2 variants of two basic words each. For our purposes these word variants are likely to obfuscate the signal we are interested in. We can reduce them to their basic meaning, their *word stem*, using a stemming tool.
@@ -665,19 +673,71 @@ t1 %>%
 
 
 ```{r}
+
 # Basic text features
 cat("Basic text features")
+getDocumentTermMatrices <- function (text.value){
+  
+  corpus <- Corpus(VectorSource(gsub("[^A-Za-z]", " ", text.value)))
+  corpus <- tm_map(corpus, stripWhitespace)
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, removePunctuation)
+  corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  corpus <- tm_map(corpus, stemDocument, language="english")
+  corpus <- tm_map(corpus, removeNumbers)
 
-corpus <- Corpus(VectorSource(data$Text))
-corpus <- tm_map(corpus, stripWhitespace)
-corpus <- tm_map(corpus, content_transformer(tolower))
-corpus <- tm_map(corpus, removePunctuation)
-corpus <- tm_map(corpus, removeWords, stopwords("english"))
-corpus <- tm_map(corpus, stemDocument, language="english")
-corpus <- tm_map(corpus, removeNumbers)
+  text.dtm <- DocumentTermMatrix(corpus)
+  text.tdm <- TermDocumentMatrix(corpus)
+  list(CORPUS = corpus,  DTM = text.dtm, TDM = text.tdm)
+}
 
-text.dtm <- DocumentTermMatrix(corpus)
-text.tdm <- DocumentTermMatrix(corpus)
+
+```
+
+```{r}
+
+getFrequentWordDataFrame <- function(word.corpus, dtm, max.word.freq){
+  freq.words <- findFreqTerms(dtm, max.word.freq)
+
+  freq.words.tdm <- 
+    TermDocumentMatrix(word.corpus, control = list(dictionary = freq.words))
+
+  freq.words.tdm.df <- as.data.frame(rowSums(as.matrix(freq.words.tdm)))
+  names(freq.words.tdm.df) <- 'count'
+  freq.words.tdm.df$words <- rownames(freq.words.tdm.df)
+  freq.words.tdm.df
+}
+```
+
+
+```{r}
+docs.train <- getDocumentTermMatrices(train$Text)
+getFrequentWordDataFrame(docs$CORPUS, docs$DTM, 100000) %>%
+  arrange(-count) %>%
+  head(20) %>%
+  ggplot(aes(x= reorder(words, count), y = count)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
+
+docs.test <- getDocumentTermMatrices(test$Text)
+getFrequentWordDataFrame(docs$CORPUS, docs$DTM, 100000)  %>%
+  arrange(-count) %>%
+  head(20) %>%
+  ggplot(aes(x= reorder(words, count), y = count)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
+
+
+docs.combine <- getDocumentTermMatrices(data$Text)
+getFrequentWordDataFrame(docs$CORPUS, docs$DTM, 100000)  %>%
+  arrange(-count) %>%
+  head(20) %>%
+  ggplot(aes(x= reorder(words, count), y = count)) +
+  geom_col() +
+  xlab(NULL) +
+  coord_flip()
 
 ```
 
@@ -703,7 +763,7 @@ foo <- train %>%
 
 t1_class <- full_join(t1, foo, by = "ID")
 
-frequency <-t1_class %>%
+frequency <- t1_class %>%
   count(Class, word) %>%
   filter(n > 5e2) %>%
   group_by(Class) %>%
