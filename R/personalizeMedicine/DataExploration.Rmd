@@ -58,7 +58,10 @@ library('forcats')
 library('tidytext') 
 library('SnowballC') 
 library('wordcloud') 
+library('wordcloud2') 
 library('tm')
+library('RWeka')
+options(mc.cores=1)
 ```
 
 ## Loading the datafiles
@@ -70,18 +73,18 @@ train_text <- as.data.table(train_text)
 train_text <- train_text[-1,]
 colnames(train_text) <- c("ID", "Text")
 train_text$ID <- as.numeric(train_text$ID)
-train_txt <- 
-  train_text %>%
-  select(ID, Text)  
+# train_txt <- 
+#   train_text %>%
+#   select(ID, Text)  
 
 test_text <- do.call(rbind,strsplit(readLines(unz('data/test_text.zip','test_text')),'||',fixed=T))
 test_text <- as.data.table(test_text)
 test_text <- test_text[-1,]
 colnames(test_text) <- c("ID", "Text")
 test_text$ID <- as.numeric(test_text$ID)
-test_txt <- 
-  test_text %>%
-  select(ID, Text)
+# test_txt <- 
+#   test_text %>%
+#   select(ID, Text)
 
 train <- fread("data/training_variants", sep=",", stringsAsFactors = T)
 test <- fread("data/test_variants", sep=",", stringsAsFactors = T)
@@ -90,7 +93,7 @@ test <- merge(test,test_text,by="ID")
 #rm(test_text,train_text);gc()
 
 test$Class <- -1
-data <- rbind(train,test)
+#data <- rbind(train,test)
 #rm(train,test);gc()
 
 ```
@@ -745,7 +748,9 @@ getFrequentWordDataFrame(docs.combine$CORPUS, docs.combine$DTM, 10000)  %>%
 
 ```
 
-```{r}
+## Wordcloud - comparision & commonality
+
+```{r, message=FALSE, warning=FALSE}
 str(train)
 dfForEachClass <- function(train.text){
   class1.text <- 
@@ -797,7 +802,7 @@ index <- 1
 for(class.txt in class.txt.list){
   doc.list <- getDocumentTermMatrices(class.txt)
   df <- getFrequentWordDataFrame(doc.list$CORPUS, doc.list$DTM, 1000)
-  colnames(df)[which(names(df) == "count")] <- paste("count-", index, sep="")
+  colnames(df)[which(names(df) == "count")] <- paste("Class -", index, sep="")
   df.list[[index]] <- df
     
   index <- index + 1
@@ -805,12 +810,117 @@ for(class.txt in class.txt.list){
 
 final.df <- Reduce(function(dtf1, dtf2) merge(dtf1, dtf2, by = "words", all = TRUE), df.list)
 final.df[is.na(final.df)] <- 0
-class(final.df$words)
 row.names(final.df ) <- final.df$words
-final.matrix <- as.matrix(final.df[,-1]) 
-comparison.cloud(final.matrix, max.words=1000, random.order=FALSE, scale = c(4,.5)) 
+final.matrix.all <- as.matrix(final.df[,c(-1)]) 
+```
+
+### Comparing words frequency of all classes 
+
+```{r, message=FALSE, warning=FALSE}
+comparison.cloud(final.matrix.all, title.size = 1.5, max.words=400, random.order = FALSE, scale = c(2,.8), rot.per=10) 
 
 ```
+
+### Common words among all classes
+
+```{r}
+commonality.cloud(final.matrix.all, max.words=200, random.order=FALSE, scale=c(5, 2),colors = brewer.pal(4, "Dark2"))
+```
+
+
+
+### Class - 1
+
+```{r}
+par(mfrow=c(1,2))
+wordcloud2(final.df[,c(1,2)])
+```
+
+### Class - 2
+
+```{r}
+wordcloud2(final.df[,c(1,3)])
+```
+
+### Class - 3
+
+```{r }
+wordcloud2(final.df[,c(1,4)])
+```
+
+### Class - 4
+
+```{r }
+wordcloud2(final.df[,c(1,5)])
+```
+
+### Class - 5
+
+```{r }
+wordcloud2(final.df[,c(1,6)])
+```
+
+### Class - 6
+
+```{r }
+wordcloud2(final.df[,c(1,7)])
+```
+
+### Class - 7
+
+```{r }
+wordcloud2(final.df[,c(1,8)])
+```
+
+### Class - 8
+
+```{r }
+wordcloud2(final.df[,c(1,9)])
+```
+
+### Class - 9
+
+```{r }
+wordcloud2(final.df[,c(1,10)])
+```
+
+## n-gram analysis
+### Frequent words
+
+```{r}
+cat("bigram corpus creation")
+library(RWeka)
+options(mc.cores=1)
+#getNGramDocumentTermMatrices <- function (text.ng.value, ngram.value){
+  
+  #corpus.ng <- Corpus(VectorSource(gsub("[^A-Za-z0-9 ]", " ", train$Text)))
+  corpus.ng <- Corpus(VectorSource(train$Text))
+  corpus.ng <- tm_map(corpus.ng, stripWhitespace)
+  corpus.ng <- tm_map(corpus.ng, content_transformer(tolower))
+  corpus.ng <- tm_map(corpus.ng, removePunctuation)
+  corpus.ng <- tm_map(corpus.ng, removeWords, stopwords("english"))
+  corpus.ng <- tm_map(corpus.ng, stemDocument, language="english")
+  corpus.ng <- tm_map(corpus.ng, removeNumbers)
+  #corpus.ng <- tm_map(corpus.ng, BigramTokenizer)
+  ## bigram tokenizer
+  BigramTokenizer <- function(x) NGramTokenizer(x, Weka_control(min = 2, max = 2))
+
+  text.dtm.ng <- DocumentTermMatrix(corpus.ng, control = list(tokenize = BigramTokenizer))
+  text.tdm.ng <- tm::TermDocumentMatrix(corpus.ng, control = list(tokenize = BigramTokenizer))
+  
+  text.tdm.df <- as.data.frame(rowSums(as.matrix(text.tdm.ng)))
+  names(text.tdm.df) <- 'count'
+  text.tdm.df$words <- rownames(text.tdm.df)
+  
+  list(CORPUS.NG = corpus,  DTM.NG = text.dtm.ng, TDM.NG = text.tdm.ng, DF.NG = text.tdm.df)
+#}
+```
+```{r}
+bigram.list <- getNGramDocumentTermMatrices(train$Text, 2)
+View(as.matrix(text.tdm.ng))
+```
+
+
 
 The result shows us the fundamental words that are most frequent in our overall text data. Another way of visualising these frequencies is through a *wordcloud*. Personally, I suspect that wordclouds might be the text equivalent of pie charts. But it's useful to know how to incorporate them into tidy text analysis:
 
