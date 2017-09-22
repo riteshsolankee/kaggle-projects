@@ -29,6 +29,8 @@ library(caret)
 library(stringr)
 library(tm)
 library(syuzhet) 
+library(dplyr)
+library(ggplot2)
 ```
 
 ## LabelCount Encoding function
@@ -113,6 +115,19 @@ dtrain <- xgb.DMatrix(data=train_sparse, label=y_train)
 dtest <- xgb.DMatrix(data=test_sparse)
 ```
 
+
+## Intermideate results
+```{r}
+str(data)
+
+#Sparce Matrix
+str(train_sparse)
+str(test_sparse)
+
+## Dense Matrix
+str(dtrain)
+str(dtest)
+```
 ## Prediction
 ```{r}
 # Params for xgboost
@@ -127,7 +142,9 @@ param <- list(booster = "gbtree",
               subsample = .7,
               colsample_bytree = .7
 )
+```
 
+```{r}
 # Cross validation - determine CV scores & optimal amount of rounds
 cat("XGB cross validation")
 xgb_cv <- xgb.cv(data = dtrain,
@@ -136,11 +153,19 @@ xgb_cv <- xgb.cv(data = dtrain,
                  maximize = FALSE,
                  prediction = TRUE,
                  folds = cvFoldsList,
-                 print.every.n = 5,
-                 early.stop.round = 100
+                 print_every_n = 5,
+                 early_stopping_rounds = 100
 )
-rounds <- which.min(xgb_cv$dt[, test.mlogloss.mean])
 
+```
+```{r}
+rounds <- which.min(xgb_cv$evaluation_log[, test_mlogloss_mean])
+
+
+```
+
+
+```{r}
 # Train model
 cat("XGB training")
 xgb_model <- xgb.train(data = dtrain,
@@ -148,22 +173,46 @@ xgb_model <- xgb.train(data = dtrain,
                        watchlist = list(train = dtrain),
                        nrounds = rounds,
                        verbose = 1,
-                       print.every.n = 5
+                       print_every_n = 5
 )
+```
 
+```{r}
 # Feature importance
 cat("Plotting feature importance")
 names <- dimnames(train_sparse)[[2]]
 importance_matrix <- xgb.importance(names,model=xgb_model)
-xgb.plot.importance(importance_matrix[1:30,],1)
+xgb.plot.importance(importance_matrix[1:60,],10)
+```
+
+```{r}
 
 # Predict and output csv
 cat("Predictions")
 preds <- as.data.table(t(matrix(predict(xgb_model, dtest), nrow=9, ncol=nrow(dtest))))
 colnames(preds) <- c("class1","class2","class3","class4","class5","class6","class7","class8","class9")
-write.table(data.table(ID=test_ids, preds), "data\submission.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(ID=test_ids, preds), "data/submission.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 ```
 
+```{r}
 
+OOF_prediction <- data.frame(preds) %>%
+  mutate(max_prob = max.col(., ties.method = "last"))
+head(OOF_prediction)
+
+
+str(OOF_prediction$max_prob)
+
+OOF_prediction %>%
+  group_by(max_prob) %>%
+  summarise(ct = n())  %>%
+  arrange(desc(ct)) %>%
+  ggplot(aes(x=reorder(max_prob, -ct), y=ct, fill=ct)) +
+  geom_bar(stat = 'identity') +
+  ggtitle("Prediction - Class target distribution\n", subtitle="Classes Vs  Count") + 
+  xlab("\n Class") + 
+  ylab("\n Count") 
+
+```
 
 

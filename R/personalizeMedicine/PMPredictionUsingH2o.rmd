@@ -1,0 +1,78 @@
+---
+title: "h2oPrediction"
+author: "Ritesh Kumar"
+date: "9/7/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library('data.table')
+library('tm')
+```
+
+## Deleting all variables
+```{r clear workspace}
+rm(list=ls())
+```
+
+```{r}
+processCorpus <- function (corpus) {
+  corpus <- tm_map(corpus, stripWhitespace)
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, stemDocument, language="english")
+  corpus <- tm_map(corpus, removePunctuation, preserve_intra_word_dashes = TRUE)
+  corpus <- tm_map(corpus, removeWords, stopwords("english")) 
+  corpus <- tm_map(corpus, function (x) {
+    gsub("\\s*(?<!\\B|-)\\d+(?!\\B|-)\\s*", "", x, perl = TRUE) }) 
+  corpus <- tm_map(corpus, stripWhitespace)
+  return (corpus)
+}
+```
+
+```{r}
+getDictionary <- function (filePath) {
+  if (is.null(filePath)) return(NULL)
+  ret <- do.call(rbind, strsplit(readLines(filePath), "\t", fixed = TRUE))
+  ret <- setNames(data.table(ret, stringsAsFactors = FALSE), 
+                  c("code", "concept_name", "parents", 
+                    "synonyms", "definition", "display_name",
+                    "concept_status", "semantic_type"))
+  
+  corpus <- Corpus(VectorSource(gsub("\\|", " ", ret$synonyms)))
+  corpus <- processCorpus (corpus)
+  
+  terms <- DocumentTermMatrix(
+  corpus, 
+  control = list(
+    minWordLength = 3,
+    weighting = function(x) weightTfIdf(x, normalize = FALSE)))
+    
+  return (as.vector(terms$dimnames$Terms))
+}
+```
+
+```{r}
+filePath <- NULL
+tryCatch({
+    destfile <- file.path("./data", "thesaurus.zip", fsep = .Platform$file.sep)
+    download.file(
+      url = "https://evs.nci.nih.gov/ftp1/NCI_Thesaurus/Thesaurus_17.07e.FLAT.zip",
+      destfile = destfile)
+    filePath <<- unzip(destfile, exdir = dirname("./data"))
+    file.remove(destfile)
+    rm(destfile)
+}, error = function(e) {
+  print (e)
+  filePath <<- NULL
+})
+```
+```{r}
+medicalDictionary <- getDictionary(filePath)
+
+```
+
