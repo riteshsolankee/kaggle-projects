@@ -160,8 +160,7 @@ xgb_cv <- xgb.cv(data = dtrain,
 ```
 ```{r}
 rounds <- which.min(xgb_cv$evaluation_log[, test_mlogloss_mean])
-
-
+rounds
 ```
 
 
@@ -191,9 +190,10 @@ xgb.plot.importance(importance_matrix[1:60,],10)
 cat("Predictions")
 preds <- as.data.table(t(matrix(predict(xgb_model, dtest), nrow=9, ncol=nrow(dtest))))
 colnames(preds) <- c("class1","class2","class3","class4","class5","class6","class7","class8","class9")
-write.table(data.table(ID=test_ids, preds), "data/submission.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
+write.table(data.table(ID=test_ids, preds), "data/submission1.csv", sep=",", dec=".", quote=FALSE, row.names=FALSE)
 ```
 
+## Result Analysis
 ```{r}
 
 OOF_prediction <- data.frame(preds) %>%
